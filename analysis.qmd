@@ -1,0 +1,387 @@
+---
+title: "Take Home Assigmnet 1"
+author: "Marc Pabst"
+date: "2022-05-03"
+execute:
+  echo: false
+format:
+  docx:
+    reference-doc: apa6.docx
+  hikmah-manuscript-pdf: default
+---
+
+In this note, we will use data obtained from a public repository to conduct an a priori power analysis. The objective of the prospective study is to investigate the following research question:
+
+1. Is there a correlation between social mindfulness and life satisfaction?
+2. Is there a correlation between social mindfulness and prosociality?
+3. Is there a correlation between social mindfulness and impulsivity? 
+4. Is there a correlation between life satisfaction and prosociality?
+5. Is there difference in life satisfaction between people living in the north and the south of the Netherlands? 
+
+```{r}
+#| include: false
+
+# install.packages("tidyverse")
+# install.packages("rstatix")
+# install.packages("pwr")
+# install.packages("knitr")
+# install.packages("effsize")
+
+# 1. Load packages
+library(tidyverse)
+library(rstatix)
+library(pwr)
+library(knitr)
+library(effsize)
+
+# 2. Load data
+data = read_csv("th1_data.csv")
+
+# 3. Set variables for analysis
+continuous_vars = c("Mind", "Pro", "Imp", "LS")
+binary_vars = c("Loc")
+
+# Dictionary of variables of interest and their corresponding long names
+vars_names_dict = c("Mind" = "Social mindfulness", "Pro" = "Prosociality", "Imp" = "Impulsivity", "LS" = "Life satisfaction", "Loc" = "Location")
+
+# 4. Clean data
+data_clean0 = data %>% 
+  select(pp_code, continuous_vars, binary_vars) %>% 
+  # check for NA or negative values
+  mutate_if(is.numeric, ~ifelse(.x < 0, NA, .x)) %>%
+  # check for values that are too high (> 100 for continuous variables; except for impulsivity which can be < 200)
+  mutate_at(vars(Mind, Pro, LS), ~ifelse(.x > 100, NA, .x)) %>%
+  mutate_at(vars(Imp), ~ifelse(.x > 200, NA, .x)) %>%
+  # remove participants with missing values in any of the columns
+  drop_na()
+
+n_missing = nrow(data) - nrow(data_clean0)
+
+data_clean = data_clean0 %>% 
+  # remove outliers
+  mutate_if(is.numeric, ~ifelse(abs(.x - mean(.x)) > 3 * sd(.x), NA, .x)) %>%
+  # remove participants with outliers in any of the columns
+  drop_na()
+
+n_outliers = nrow(data_clean0) - nrow(data_clean)
+n_removed = nrow(data) - nrow(data_clean)
+
+# df that contains number of removed values per variable
+n_removed_df = data %>% 
+  select(pp_code, continuous_vars, binary_vars) %>% 
+  # check for NA or negative values
+  mutate_if(is.numeric, ~ifelse(.x < 0, NA, .x)) %>%
+  # check for values that are too high (> 100 for continuous variables; except for impulsivity which can be < 200)
+  mutate_at(vars(Mind, Pro, LS), ~ifelse(.x > 100, NA, .x)) %>%
+  mutate_at(vars(Imp), ~ifelse(.x > 200, NA, .x)) %>%
+  # now count the number of na's per variable
+  summarise_all(~sum(is.na(.))) 
+
+
+
+
+# function to format p-value according to APA style (vectorized)
+format_pval <- function(p) {
+  # if p is a vector, apply function to each element
+  if (length(p) > 1) {
+    return(sapply(p, format_pval))
+  }
+  if (is.numeric(p)) {
+    if (p < 0.001) {
+      return(paste0("< 0.001"))
+    } else {
+      return(sprintf("%.3f", p))
+    }
+  } else {
+    return(p)
+  }
+}
+
+```
+
+# Descriptive Statistics
+
+To obtain the final sample for analyisis, we remove `r n_missing` participants from the dataset because they had missing or invalid values in one or more of the variables of interest (1 missing or invalid data point in "social mindfulness", 2 missing or invalid data points in "prosociality", no missig or invalid data points in "impulsivity", and 4 missing or invalid data points in "life satisfaction", no missing or invalid data points in "location"). We did not find any outliers in our data (for our purposes, we define outliers as values that are more than 3 standard deviations away from the mean). The final sample therefore consisted of `r nrow(data_clean)` participants. We depict mean, standard deviation, minimum, and maximum for the continuous variables in @tbl-descriptive-stats. Frequencies and for the binary variable "Location" are shown in @tbl-location. 
+
+```{r}
+#| label: tbl-descriptive-stats
+#| tbl-cap: Descriptive statistics for the continuous variables of interest in the final sample.
+
+data_clean %>%
+  select(continuous_vars) %>%
+  get_summary_stats() %>%  
+  # select variable, min, max, mean, sd, n
+  select(variable, min, max, mean, sd, n) %>%
+  # rename variable to variable name
+  mutate(variable = vars_names_dict[variable]) %>%
+  # format min, max, mean, sd to 2 decimal places
+  mutate_if(is.numeric, ~sprintf("%.2f", .x)) %>%
+  # rename columns
+  rename("Variable" = variable, "Minimum" = min, "Maximum" = max, "Mean" = mean, "SD" = sd, "N" = n) %>%
+  kable() 
+```
+
+```{r}
+#| label: tbl-location
+#| tbl-cap: Frequencies for the the variable "Location" in the final sample as well as conditional means and corresponding 95% confidence intervals for life satisfaction in the north and south of the Netherlands.
+
+# Frequencies for the categorical variable
+data_clean %>%
+  # select only the categorical variable
+  select(Loc, LS) %>%
+  # count the frequencies and calculate the means + 95% CI
+  group_by(Loc) %>%
+  summarise(n = n(), mean_ls = mean(LS), conf.low = mean(LS) - 1.96 * sd(LS) / sqrt(n), conf.high = mean(LS) + 1.96 * sd(LS) / sqrt(n)) %>%
+  # format mean_ls to 2 decimal places
+  mutate(mean_ls = sprintf("%.2f", mean_ls)) %>%
+  # make nice CI
+  mutate(ci = sprintf("%.2f - %.2f", conf.low, conf.high)) %>%
+  # remove conf.low and conf.high
+  select(-conf.low, -conf.high) %>%
+  # rename columns
+  rename("Location" = Loc, "N" = n, "Mean LS" = mean_ls, "95% CI" = ci) %>%
+  kable()
+
+```
+
+We plot distributions of the continuous variables of interest in @fig-density-plots. Clearly, all variables are approximately normally distributed and are therefore suitable for parametric testing. Scatter plots of the continuous variables of interest are shown in @fig-scatter-plots. We observe that there is a positive correlation for all four pairs of variables as defined by our first four research questions (compare blue lines in @fig-scatter-plots). 
+
+```{r}
+#| label: fig-density-plots
+#| fig-cap: Density plots for the continuous variables of interest in the final sample.
+#| fig-subcap:
+#|   - "Social mindfulness"
+#|   - "Prosociality"
+#|   - "Impulsivity"
+#|   - "Life satisfaction"
+#| layout-ncol: 2
+
+
+# Density plots for social mindfulness
+data_clean %>%
+  ggplot(aes(x = Mind)) +
+  geom_density(fill = "lightblue", alpha = 0.5) +
+  labs(x = "Social mindfulness", y = "Density") +
+  theme_classic()
+
+# Density plots for prosociality
+data_clean %>%
+  ggplot(aes(x = Pro)) +
+  geom_density(fill = "lightblue", alpha = 0.5) +
+  labs(x = "Prosociality", y = "Density") +
+  theme_classic()
+
+# Density plots for impulsivity
+data_clean %>%
+  ggplot(aes(x = Imp)) +
+  geom_density(fill = "lightblue", alpha = 0.5) +
+  labs(x = "Impulsivity", y = "Density") +
+  theme_classic()
+
+# Density plots for life satisfaction
+data_clean %>%
+  ggplot(aes(x = LS)) +
+  geom_density(fill = "lightblue", alpha = 0.5) +
+  labs(x = "Life satisfaction", y = "Density") +
+  theme_classic()
+
+```
+
+
+```{r}
+#| label: fig-scatter-plots
+#| fig-cap: Scatter plots of the continuous variables of interest in the final sample. Blue lines linear relationship between the variables.
+#| fig-subcap:
+#|  - Social mindfulness and life satisfaction
+#|  - Social mindfulness and prosociality
+#|  - Social mindfulness and impulsivity
+#|  - Life satisfaction and prosociality
+#| layout-ncol: 2
+#| output: false
+
+ggplot(data_clean, aes(x = Mind, y = LS)) + geom_point() + theme_classic() + labs(x = "Social mindfulness", y = "Life satisfaction") + geom_smooth(method = "lm", se = FALSE)
+
+ggplot(data_clean, aes(x = Mind, y = Pro)) + geom_point() + theme_classic() + labs(x = "Social mindfulness", y = "Prosociality") + geom_smooth(method = "lm", se = FALSE)
+
+ggplot(data_clean, aes(x = Mind, y = Imp)) + geom_point() + theme_classic() + labs(x = "Social mindfulness", y = "Impulsivity") + geom_smooth(method = "lm", se = FALSE)
+
+ggplot(data_clean, aes(x = LS, y = Pro)) + geom_point() + theme_classic() + labs(x = "Life satisfaction", y = "Prosociality") + geom_smooth(method = "lm", se = FALSE)
+
+```
+
+# Statistical Analysis  
+
+We analyze the final sample of 63 data points that we obtained as described above. To examine the research questions as outlined earlier, we calculate correlations between the continuous variables of interest and group differences in life satisfaction between the north and south of the Netherlands. Effect sizes therefore reflect Pearson's $r$ for correlations (first four research questions) and the unstandardized group difference for the fifth research question. All $p$-values are reported based on a two-tailed $t$-test. We depict the results of the $t$-tests for all research questions in @tbl-main. For the fifth research question, we report a $p$-value based on a $t$-test for independant samples with no correction of variance. P-values are corrected for multiple comparisons using the method proposed by Bonferroni (1966).
+
+```{r}
+#| label: tbl-main
+#| tbl-cap: Observed Pearson correlations, corresponding confidence intervals, $t$-statistics, and $p$-values) for the five research questions (Mind = social mindfulness, Pro = prosociality, Imp = impulsivity, LS = life satisfaction, Loc = location). $p$-values are corrected for multiple comparisons using the method proposed by Bonferroni (1966). Effect sizes for the four correlations between the continuous variables are reported as Pearson's $r$, while an (unstandardized) effect size for the difference in life statisfaction for locations is reported as the mean difference between the two groups. Note that the conditional means for the correlation (and corresponding confidence intervals) between location and life satisfaction are reported in @tbl-location. For the fifth research question, we also report Hedges' $g$ as a measure of effect size.
+
+valid_pairs = c("Mind ~ LS", "Mind ~ Pro", "Mind ~ Imp", "LS ~ Pro", "LS ~ Loc")
+
+# calculate t-test for the difference in life satisfaction between north and south
+ttest_res = data_clean %>%
+  t_test(LS ~ Loc, paired = FALSE, detailed = TRUE, var.equal = TRUE)
+
+# calculate hedge's g for the difference in life satisfaction between north and south
+hedges_g = cohen.d(formula = LS ~ Loc, data = data_clean, paired = FALSE, var.equal = TRUE, hedges.correction = TRUE)$estimate
+
+cor_table = data_clean %>% 
+    select(Mind, Pro, Imp, LS, Loc) %>% 
+    # recode location variable as one hot encoded variable
+    mutate(Loc = ifelse(Loc == "north", 1, 0)) %>%
+    cor_test() %>%
+    # cor_test seems to have a bug, so we need to manually need to compute the
+    # note: we can use the same function to compute the correlations between the continuous variables and the location variable, because the location variable is one hot encoded, meaning that the test statistic is the same as for an independent samples t-test
+    mutate(contrast = paste0(var1, " ~ ", var2)) %>%
+    filter(contrast %in% valid_pairs) %>%
+    # add Hedge's g only for fifth research question
+    mutate(g = ifelse(contrast == "LS ~ Loc", sprintf("%.2f", hedges_g), "")) %>%
+    # add dof column
+    mutate(dof = nrow(data_clean) - 2) %>%
+    # remove var1 and var2 columns
+    select(-var1, -var2, -method) 
+
+cor_table %>%
+  # for the correlation between life satisfaction and location, compute the mean difference between the two groups as cor
+  mutate(cor = ifelse(contrast == "LS ~ Loc", ttest_res$estimate, cor)) %>%
+  # also update the conf.low and conf.high columns to reflect the CI of the mean difference
+  mutate(conf.low = ifelse(contrast == "LS ~ Loc", ttest_res$conf.low, conf.low), conf.high = ifelse(contrast == "LS ~ Loc", ttest_res$conf.high, conf.high)) %>%
+  # add row with nice CI from conf.low and conf.high (make sure that two decimal places are shown
+  mutate(CI = sprintf("%.2f - %.2f", conf.low, conf.high)) %>%
+  # add test statistic column
+  # apply Bonferroni correction to p-value
+  mutate(p = p.adjust(p, method = "bonferroni")) %>%
+  # add p-value column
+  mutate(p = format_pval(p)) %>%
+  # format all numerical variables to two decimal places
+  mutate(statistic = sprintf("%.2f", statistic)) %>%
+  # remove conf.low and conf.high columns
+  select(-conf.low, -conf.high) %>%
+  # reorder columns
+  select(contrast, cor, CI, statistic, p, g) %>%
+  # rename columns for better readability
+  rename(
+    "Research Question" = contrast,
+    "Eff. Size" = cor,
+    "$p$" = p,
+    "Hedge's $g$" = g,
+    "95% CI" = CI,
+    "$t$(61)" = statistic
+  ) %>%
+  kable()
+
+```
+
+We find that people in the sample that are more prosocial are also more socially mindful ($r$ = 0.42, $t$(61) = 3.58, $p$ = 0.003). We also find that people in the sample that are more socially mindful are also more impulsive ($r$ = 0.35, $t$(61) = 2.93, $p$ = 0.024) and more satisfied with their lives ($r$ = 0.74, $t$(61) = 8.62, $p$ < 0.001). Also, we find that people in the sample that are more satisfied with their lives are also more prosocial ($r$ = 0.51, $t$(61) = 4.66, $p$ < 0.001). Finally, we could not find any evidence that people in the north of the Netherlands are more satisfied with their lives than people in the south of the Netherlands ($r$ = 0.18, $t$(61) = 1.41, $p$ = 0.815).
+
+```{r}
+#| include: false
+
+# set default number of digits for cor in cor_test to 3
+options(cor_test.digits = 3)
+
+# compare point-biserial correlation with t-test
+
+# compute point-biserial correlation
+data_clean %>%
+  select(LS, Loc) %>%
+  # recode location variable as one hot encoded variable
+  mutate(Loc = ifelse(Loc == "north", 1, 0)) %>%
+  #mutate(p = cor.test(LS, Loc, method = "pearson", alternative = "two.sided")) %>%
+  cor_test() 
+
+# compute t-test without Welch-correction
+tt = t.test(LS ~ Loc, data = data_clean, var.equal = TRUE, paired = FALSE, detailed = TRUE)
+cohens_d = cohen.d(formula = LS ~ Loc, data = data_clean, paired = FALSE, var.equal = TRUE)$estimate
+
+# compare power analysis for t-test and point-biserial correlation
+
+# compute power for t-test
+pwr.t.test(d = 0.3580253907, power=.95, sig.level = 0.01, alternative = "two.sided", type = "two.sample")
+
+# compute power for point-biserial correlation
+pwr.r.test(power=.95, r = 0.178, sig.level = 0.01, alternative = "two.sided")
+```
+
+
+# Power Analysis
+
+We perform a power analysis to determine the number of participants needed to achieve a power of 0.95 for a subsequent study for each of the five research questions. Thus, we will use the observed effect sizes from the present dataset. Here, we use the `pwr` package to perform the power analysis. The power analysis is performed for a two-tailed $t$-test with a Bonferroni-corrected alpha level of $0.05/5 = 0.01$. The results are shown in @tbl-power. Here, we also report the expected power for each individual research question based on the number of participants required to achieve a power of 0.95 or more for all five research questions. Note that all reported sample sizes are rounded to the nearest integer and always concern the total number of participants in the study. We find that a total sample of 560 participants is needed to achieve a power of 0.95 or more for all five research questions. We also calculate the power for all research questions as a function of sample size in @fig-power-analysis. Here, we observe that the power increases with the sample size for all research questions. 
+
+
+```{r}
+#| label: tbl-power
+#| tbl-cap: Power analysis for the five research questions (Mind = social mindfulness, Pro = prosociality, Imp = impulsivity, LS = life satisfaction, Loc = location). The power analysis is performed for a two-tailed test with an alpha level of 0.05 and a target power of 0.95. The effect sizes are calculated as the correlation coefficient for the first four research questions and as the difference in means for the fifth research question. Values in the column "Target N" indicate the number of participants needed to achieve a power of 0.95.
+#| 
+corrected_sig = 0.05 / length(valid_pairs)
+
+# compute sample size for fifth research question
+cohens_d = cohen.d(formula = LS ~ Loc, data = data_clean, paired = FALSE, var.equal = TRUE)$estimate
+n_loc = pwr.t.test(d = cohens_d, power=.95, sig.level = corrected_sig, alternative = "two.sided", type = "two.sample")$n * 2
+
+cor_table %>%
+    rowwise() %>%
+    mutate(n = pwr.r.test(n = NULL, r = cor, sig.level = corrected_sig, power = .95, alternative = "two.sided")$n) %>%
+    #  for the fifth research question, use the sample size for the t-test
+    mutate(n = ifelse(contrast == "LS ~ Loc", n_loc, n)) %>%
+    select(contrast, cor, n) %>%
+    ungroup() %>%
+    mutate(n_max = max(n)) %>%
+    rowwise() %>%
+    mutate(n = ceiling(n)) %>%
+    # calculate expexted power using a sample of n
+    mutate(power = pwr.r.test(n = n_max, r = cor, sig.level = corrected_sig, power = NULL, alternative = "two.sided")$power) %>%
+    # format cor to 2 decimals palces
+    mutate(cor = sprintf("%.2f", cor)) %>%
+    # hide max n column
+    select(-n_max) %>%
+    # n should be rounded to the next integer
+    # rename columns for better readability
+    rename(
+      "Research Question" = contrast,
+      "Observed Effect Size" = cor,
+      "Target N" = n,
+      "Expected Power using n = 560" = power
+    ) %>%
+    kable()
+```
+
+
+
+```{r}
+#| label: fig-power-analysis
+#| fig-cap: Power analysis for the five research questions as a function of the sample size. The power analysis is performed for a two-tailed $t$-test with a Bonferroni-corrected alpha level of 0.01. Figure shows the power for every individual research question as a function of the total sample size. Note that for the fifth research question, the sample size therefore concerns the total number of participants in the study, i.e., the number of participants in the north and the south group combined. 
+
+# create new tibble with columns `n` and `contrast`, so that there are 997 rows per contrast
+power_table = tibble(
+  n = rep(seq(4, 1000), each = length(cor_table$contrast)),
+  contrast = rep(cor_table$contrast, times = 997)) %>%
+  # add `cor` for each contrast
+  left_join(cor_table, by = "contrast", copy = TRUE) %>%
+  # add power for each contrast
+  rowwise() %>%
+  mutate(power = pwr.r.test(n = n, r = cor, sig.level = corrected_sig, power = NULL, alternative = "two.sided")$power) %>%
+  # for the fifth research question, use pwr.t.test instead of pwr.r.test
+  mutate(power = ifelse(contrast == "LS ~ Loc", pwr.t.test(d = cohens_d, n = n/2, sig.level = corrected_sig, power = NULL, alternative = "two.sided", type = "two.sample")$power, power))
+
+
+# plot power as a function of sample size per contrast
+power_table %>%
+  ggplot(aes(x = n, y = power, color = contrast)) +
+  geom_line() +
+  labs(x = "Sample size", y = "Power") +
+  # add horizontal line at 0.95
+  geom_hline(yintercept = 0.95, linetype = "dashed") +
+  theme_bw() +
+  # add legend below plot and hide variable names
+  theme(legend.position = "bottom", legend.title = element_blank())
+
+```
+
+
+# Discussion
+
+In the present note, we used a sample obtained from an open repository to conduct a power analyis for a prospective study on the relationship between social mindfulness, prosociality, impulsivity, life satisfaction, and location. We found that a sample of 560 participants would be sufficient to achieve a power of 0.95 or more for all five research questions. However, the needed sample size for the fifth research question is much larger than the needed sample size for the other four research questions. Thus, the fifth research question requires a larger sample size to achieve a power of 0.95. Because recruting participants for a study is costly and time-consuming, researchers should consider if investigating the fifth research question is feasible with the available resources. Dropping the fifth research question would reduce the needed sample size to 136 participants.
+
+A prospective study should also consider using a more liberal correction for multiple comparisons. Using a Bonferroni-corrected alpha level of $0.01$ is known to be more conservative than necessary to properly control the family-wise error rate and account for multiple comparisons, resulting in reduced power. A more powerful alternative like the Benjamini-Hochberg correction might be more appropriate in this case.
