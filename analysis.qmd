@@ -10,13 +10,13 @@ format:
   hikmah-manuscript-pdf: default
 ---
 
-In this note, we will use data obtained from a public repository to conduct an a priori power analysis. The objective of the prospective study is to investigate the following research question:
+In this note, we will use data obtained from a public repository to conduct an a priori power analysis. The objective of the prospective study is to investigate the following research questions:
 
 1. Is there a correlation between social mindfulness and life satisfaction?
 2. Is there a correlation between social mindfulness and prosociality?
-3. Is there a correlation between social mindfulness and impulsivity? 
+3. Is there a correlation between social mindfulness and impulsivity?
 4. Is there a correlation between life satisfaction and prosociality?
-5. Is there difference in life satisfaction between people living in the north and the south of the Netherlands? 
+6. Is there a difference in life satisfaction between people living in the north and the south of the Netherlands?
 
 ```{r}
 #| include: false
@@ -100,8 +100,7 @@ format_pval <- function(p) {
 ```
 
 # Descriptive Statistics
-
-To obtain the final sample for analyisis, we remove `r n_missing` participants from the dataset because they had missing or invalid values in one or more of the variables of interest (1 missing or invalid data point in "social mindfulness", 2 missing or invalid data points in "prosociality", no missig or invalid data points in "impulsivity", and 4 missing or invalid data points in "life satisfaction", no missing or invalid data points in "location"). We did not find any outliers in our data (for our purposes, we define outliers as values that are more than 3 standard deviations away from the mean). The final sample therefore consisted of `r nrow(data_clean)` participants. We depict mean, standard deviation, minimum, and maximum for the continuous variables in @tbl-descriptive-stats. Frequencies and for the binary variable "Location" are shown in @tbl-location. 
+To obtain the final sample for analysis, we remove r n_missing participants from the dataset because they had missing or invalid values in one or more of the variables of interest (1 missing or invalid data point in "social mindfulness", 2 missing or invalid data points in "prosociality", no missing or invalid data points in "impulsivity", and 4 missing or invalid data points in "life satisfaction", no missing or invalid data points in "location"). We did not find any outliers in our data (for our purposes, we define outliers as values that are more than 3 standard deviations away from the mean). The final sample therefore consisted of r nrow(data_clean) participants. We depict mean, standard deviation, minimum, and maximum for the continuous variables in @tbl-descriptive-stats. Frequencies for the binary variable "Location" are shown in @tbl-location.
 
 ```{r}
 #| label: tbl-descriptive-stats
@@ -143,8 +142,7 @@ data_clean %>%
   kable()
 
 ```
-
-We plot distributions of the continuous variables of interest in @fig-density-plots. Clearly, all variables are approximately normally distributed and are therefore suitable for parametric testing. Scatter plots of the continuous variables of interest are shown in @fig-scatter-plots. We observe that there is a positive correlation for all four pairs of variables as defined by our first four research questions (compare blue lines in @fig-scatter-plots). 
+We plot distributions of the continuous variables of interest in @fig-density-plots. Clearly, all variables are approximately normally distributed and are therefore suitable for parametric testing. Scatter plots of the continuous variables of interest are shown in @fig-scatter-plots. We observe that there is a positive correlation for all four pairs of variables as defined by our first four research questions (compare blue lines in @fig-scatter-plots).
 
 ```{r}
 #| label: fig-density-plots
@@ -211,7 +209,7 @@ ggplot(data_clean, aes(x = LS, y = Pro)) + geom_point() + theme_classic() + labs
 
 # Statistical Analysis  
 
-We analyze the final sample of 63 data points that we obtained as described above. To examine the research questions as outlined earlier, we calculate correlations between the continuous variables of interest and group differences in life satisfaction between the north and south of the Netherlands. Effect sizes therefore reflect Pearson's $r$ for correlations (first four research questions) and the unstandardized group difference for the fifth research question. All $p$-values are reported based on a two-tailed $t$-test. We depict the results of the $t$-tests for all research questions in @tbl-main. For the fifth research question, we report a $p$-value based on a $t$-test for independant samples with no correction of variance. P-values are corrected for multiple comparisons using the method proposed by Bonferroni (1966).
+We analyze the final sample of 63 data points that we obtained as described above. To examine the research questions as outlined earlier, we calculate correlations between the continuous variables of interest and group differences in life satisfaction between the north and south of the Netherlands. Effect sizes therefore reflect Pearson's $r$ for correlations (first four research questions) and the unstandardized group difference for the fifth research question. All $p$-values are reported based on a two-tailed $t$-test. We depict the results of the $t$-tests for all research questions in @tbl-main. For the fifth research question, we report a $p$-value based on a $t$-test for independent samples with no correction of variance. P-values are corrected for multiple comparisons using the method proposed by Bonferroni (1966).
 
 ```{r}
 #| label: tbl-main
@@ -273,7 +271,7 @@ cor_table %>%
 
 ```
 
-We find that people in the sample that are more prosocial are also more socially mindful ($r$ = 0.42, $t$(61) = 3.58, $p$ = 0.003). We also find that people in the sample that are more socially mindful are also more impulsive ($r$ = 0.35, $t$(61) = 2.93, $p$ = 0.024) and more satisfied with their lives ($r$ = 0.74, $t$(61) = 8.62, $p$ < 0.001). Also, we find that people in the sample that are more satisfied with their lives are also more prosocial ($r$ = 0.51, $t$(61) = 4.66, $p$ < 0.001). Finally, we could not find any evidence that people in the north of the Netherlands are more satisfied with their lives than people in the south of the Netherlands ($r$ = 0.18, $t$(61) = 1.41, $p$ = 0.815).
+We find that people in the sample that are more prosocial are also more socially mindful ($r$ = 0.42, $t$(61) = 3.58, $p$ = 0.003). We also find that people in the sample that are more socially mindful are also more impulsive ($r$ = 0.35, $t$(61) = 2.93, $p$ = 0.024) and more satisfied with their lives ($r$ = 0.74, $t$(61) = 8.62, $p$ < 0.001). Additionally, we find that people in the sample that are more satisfied with their lives are also more prosocial ($r$ = 0.51, $t$(61) = 4.66, $p$ < 0.001). Finally, we could not find any evidence that people in the north of the Netherlands are more satisfied with their lives than people in the south of the Netherlands ($r$ = 0.18, $t$(61) = 1.41, $p$ = 0.815).
 
 ```{r}
 #| include: false
@@ -306,9 +304,7 @@ pwr.r.test(power=.95, r = 0.178, sig.level = 0.01, alternative = "two.sided")
 
 
 # Power Analysis
-
-We perform a power analysis to determine the number of participants needed to achieve a power of 0.95 for a subsequent study for each of the five research questions. Thus, we will use the observed effect sizes from the present dataset. Here, we use the `pwr` package to perform the power analysis. The power analysis is performed for a two-tailed $t$-test with a Bonferroni-corrected alpha level of $0.05/5 = 0.01$. The results are shown in @tbl-power. Here, we also report the expected power for each individual research question based on the number of participants required to achieve a power of 0.95 or more for all five research questions. Note that all reported sample sizes are rounded to the nearest integer and always concern the total number of participants in the study. We find that a total sample of 560 participants is needed to achieve a power of 0.95 or more for all five research questions. We also calculate the power for all research questions as a function of sample size in @fig-power-analysis. Here, we observe that the power increases with the sample size for all research questions. 
-
+We perform a power analysis to determine the number of participants needed to achieve a power of 0.95 for a subsequent study for each of the five research questions. Thus, we will use the observed effect sizes from the present dataset. Here, we use the pwr package to perform the power analysis. The power analysis is performed for a two-tailed $t$-test with a Bonferroni-corrected alpha level of $0.05/5 = 0.01$. The results are shown in @tbl-power. Here, we also report the expected power for each individual research question based on the number of participants required to achieve a power of 0.95 or more for all five research questions. Note that all reported sample sizes are rounded to the nearest integer and always concern the total number of participants in the study. We find that a total sample of 560 participants is needed to achieve a power of 0.95 or more for all five research questions. We also calculate the power for all research questions as a function of sample size in @fig-power-analysis. Here, we observe that the power increases with the sample size for all research questions.
 
 ```{r}
 #| label: tbl-power
@@ -382,6 +378,6 @@ power_table %>%
 
 # Discussion
 
-In the present note, we used a sample obtained from an open repository to conduct a power analyis for a prospective study on the relationship between social mindfulness, prosociality, impulsivity, life satisfaction, and location. We found that a sample of 560 participants would be sufficient to achieve a power of 0.95 or more for all five research questions. However, the needed sample size for the fifth research question is much larger than the needed sample size for the other four research questions. Thus, the fifth research question requires a larger sample size to achieve a power of 0.95. Because recruting participants for a study is costly and time-consuming, researchers should consider if investigating the fifth research question is feasible with the available resources. Dropping the fifth research question would reduce the needed sample size to 136 participants.
+In the present note, we used a sample obtained from an open repository to conduct a power analysis for a prospective study on the relationship between social mindfulness, prosociality, impulsivity, life satisfaction, and location. We found that a sample of 560 participants would be sufficient to achieve a power of 0.95 or more for all five research questions. However, the needed sample size for the fifth research question is much larger than the needed sample size for the other four research questions. Thus, the fifth research question requires a larger sample size to achieve a power of 0.95. Because recruiting participants for a study is costly and time-consuming, researchers should consider if investigating the fifth research question is feasible with the available resources. Dropping the fifth research question would reduce the needed sample size to 136 participants.
 
 A prospective study should also consider using a more liberal correction for multiple comparisons. Using a Bonferroni-corrected alpha level of $0.01$ is known to be more conservative than necessary to properly control the family-wise error rate and account for multiple comparisons, resulting in reduced power. A more powerful alternative like the Benjamini-Hochberg correction might be more appropriate in this case.
